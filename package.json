@@ -1,0 +1,62 @@
+{
+  "name": "send-ref-to-terminal",
+  "displayName": "Send File Reference to Terminal",
+  "description": "Send selected code's file reference (path:startLine-endLine) to the active terminal",
+  "version": "0.0.1",
+  "publisher": "Franki",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/NikFranki/send-ref-to-terminal"
+  },
+  "keywords": [
+    "terminal",
+    "file reference",
+    "claude",
+    "code reference"
+  ],
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "icon": "icon.png",
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "sendRefToTerminal.send",
+        "title": "Send File Reference to Terminal"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "sendRefToTerminal.send",
+        "key": "ctrl+shift+alt+r",
+        "when": "editorTextFocus && editorHasSelection"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "sendRefToTerminal.send",
+          "when": "editorHasSelection",
+          "group": "navigation@1"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/node": "^18.0.0",
+    "@types/vscode": "^1.80.0",
+    "sharp": "^0.34.5",
+    "typescript": "^5.0.0"
+  }
+}
