@@ -16,19 +16,24 @@
     "code reference"
   ],
   "engines": {
-    "vscode": "^1.80.0"
+    "vscode": "^1.90.0"
   },
   "icon": "icon.png",
   "categories": [
     "Other"
   ],
-  "activationEvents": [],
+  "activationEvents": ["onStartupFinished"],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
       {
         "command": "sendRefToTerminal.send",
-        "title": "Send File Reference to Terminal"
+        "title": "Add to Terminal",
+        "shortTitle": "Add to Terminal"
+      },
+      {
+        "command": "sendRefToTerminal.sendFile",
+        "title": "Send File to Terminal"
       }
     ],
     "keybindings": [
@@ -45,6 +50,13 @@
           "when": "editorHasSelection",
           "group": "navigation@1"
         }
+      ],
+      "explorer/context": [
+        {
+          "command": "sendRefToTerminal.sendFile",
+          "when": "!explorerResourceIsFolder",
+          "group": "navigation@1"
+        }
       ]
     }
   },
@@ -55,7 +67,7 @@
   },
   "devDependencies": {
     "@types/node": "^18.0.0",
-    "@types/vscode": "^1.80.0",
+    "@types/vscode": "^1.90.0",
     "typescript": "^5.0.0"
   }
 }
