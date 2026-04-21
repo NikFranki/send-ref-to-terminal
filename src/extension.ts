@@ -1,42 +1,61 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
+import * as fs from 'fs';
 
 interface FileRefLinkData {
-  uri: vscode.Uri;
+  relativePath: string;
   startLine: number;
   endLine: number;
 }
 
 class FileRefTerminalLinkProvider implements vscode.TerminalLinkProvider<vscode.TerminalLink & { data: FileRefLinkData }> {
-  // matches: filename.ext:10  or  filename.ext:10-20
-  private static readonly PATTERN = /([^\s/\\]+\.[a-zA-Z0-9]+):(\d+)(?:-(\d+))?/g;
+  // matches: some/path/file.ext  or  some/path/file.ext:10  or  some/path/file.ext:10-20
+  private static readonly PATTERN = /([\w.\-/\\]+\.[a-zA-Z0-9]+)(?::(\d+)(?:-(\d+))?)?/g;
 
   async provideTerminalLinks(context: vscode.TerminalLinkContext): Promise<Array<vscode.TerminalLink & { data: FileRefLinkData }>> {
     const links: Array<vscode.TerminalLink & { data: FileRefLinkData }> = [];
+    const folders = vscode.workspace.workspaceFolders;
+    if (!folders) return links;
+
     const pattern = new RegExp(FileRefTerminalLinkProvider.PATTERN.source, 'g');
     let match: RegExpExecArray | null;
 
     while ((match = pattern.exec(context.line)) !== null) {
-      const [full, fileName, startStr, endStr] = match;
-      const results = await vscode.workspace.findFiles(`**/${fileName}`, '**/node_modules/**', 5);
-      if (results.length === 0) continue;
+      const [full, relativePath, startStr, endStr] = match;
 
-      const startLine = parseInt(startStr) - 1;
+      const exists = folders.some(f =>
+        fs.existsSync(path.join(f.uri.fsPath, relativePath))
+      );
+      if (!exists) continue;
+
+      const startLine = startStr ? parseInt(startStr) - 1 : 0;
       const endLine = endStr ? parseInt(endStr) - 1 : startLine;
+      const lineLabel = startStr
+        ? (endLine > startLine ? `${startLine + 1}-${endLine + 1}` : `${startLine + 1}`)
+        : '';
 
-      const lineLabel = endLine > startLine ? `${startLine + 1}-${endLine + 1}` : `${startLine + 1}`;
+      const folder = folders.find(f => fs.existsSync(path.join(f.uri.fsPath, relativePath)))!;
+      const absPath = path.join(folder.uri.fsPath, relativePath);
+
       links.push({
         startIndex: match.index,
         length: full.length,
-        tooltip: `${results[0].fsPath} (${lineLabel})`,
-        data: { uri: results[0], startLine, endLine }
+        tooltip: lineLabel ? `${absPath} (${lineLabel})` : absPath,
+        data: { relativePath, startLine, endLine }
       });
     }
     return links;
   }
 
   handleTerminalLink(link: vscode.TerminalLink & { data: FileRefLinkData }): void {
-    const { uri, startLine, endLine } = link.data;
+    const { relativePath, startLine, endLine } = link.data;
+    const folders = vscode.workspace.workspaceFolders;
+    if (!folders) return;
+
+    const folder = folders.find(f => fs.existsSync(path.join(f.uri.fsPath, relativePath)));
+    if (!folder) return;
+
+    const uri = vscode.Uri.file(path.join(folder.uri.fsPath, relativePath));
     vscode.window.showTextDocument(uri, {
       selection: new vscode.Range(startLine, 0, endLine, Number.MAX_SAFE_INTEGER),
       preserveFocus: false
@@ -50,6 +69,13 @@ class AddToTerminalActionProvider implements vscode.CodeActionProvider {
     action.command = { command: 'sendRefToTerminal.send', title: 'Add to Terminal' };
     return [action];
   }
+}
+
+function getRelativePath(filePath: string): string {
+  const folders = vscode.workspace.workspaceFolders;
+  if (!folders) return path.basename(filePath);
+  const folder = folders.find(f => filePath.startsWith(f.uri.fsPath));
+  return folder ? path.relative(folder.uri.fsPath, filePath) : path.basename(filePath);
 }
 
 export function activate(context: vscode.ExtensionContext) {
@@ -76,9 +102,9 @@ export function activate(context: vscode.ExtensionContext) {
     const targetUri = uri ?? vscode.window.activeTextEditor?.document.uri;
     if (!targetUri) return;
 
-    const ref = path.basename(targetUri.fsPath);
+    const ref = getRelativePath(targetUri.fsPath);
     const terminal = vscode.window.activeTerminal ?? vscode.window.createTerminal();
-    terminal.show(true);
+    terminal.show(false);
     terminal.sendText(ref, false);
   });
 
@@ -93,22 +119,21 @@ export function activate(context: vscode.ExtensionContext) {
     if (!editor) return;
 
     const selection = vscode.window.activeTextEditor ? editor.selection : lastSelection;
-    const filePath = editor.document.uri.fsPath;
-    const fileName = path.basename(filePath);
+    const relativePath = getRelativePath(editor.document.uri.fsPath);
 
     let ref: string;
     if (!selection || selection.isEmpty) {
-      ref = `${fileName}:${editor.selection.active.line + 1}`;
+      ref = `${relativePath}:${editor.selection.active.line + 1}`;
     } else {
       const startLine = selection.start.line + 1;
       const endLine = selection.end.line + 1;
       ref = startLine === endLine
-        ? `${fileName}:${startLine}`
-        : `${fileName}:${startLine}-${endLine}`;
+        ? `${relativePath}:${startLine}`
+        : `${relativePath}:${startLine}-${endLine}`;
     }
 
     const terminal = vscode.window.activeTerminal ?? vscode.window.createTerminal();
-    terminal.show(true);
+    terminal.show(false);
     terminal.sendText(ref, false);
   });
 

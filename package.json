@@ -2,7 +2,7 @@
   "name": "send-ref-to-terminal",
   "displayName": "Send File Reference to Terminal",
   "description": "Send selected code's file reference (path:startLine-endLine) to the active terminal",
-  "version": "0.0.1",
+  "version": "0.0.3",
   "publisher": "Franki",
   "license": "MIT",
   "repository": {
